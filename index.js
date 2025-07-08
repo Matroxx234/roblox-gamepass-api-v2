@@ -13,17 +13,24 @@ app.get("/api/passes/:userId", async (req, res) => {
   const url = `https://www.roblox.com/users/${userId}/game-passes`;
 
   try {
-    const html = await axios.get(url, {
+    const response = await axios.get(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       }
     });
 
-    const $ = cheerio.load(html.data);
+    console.log("✅ HTML chargé depuis Roblox");
+    console.log(response.data.slice(0, 500)); // aperçu HTML
+
+    const $ = cheerio.load(response.data);
     const passes = [];
 
     const gamepassDivs = $(".game-pass-item");
+
+    if (gamepassDivs.length === 0) {
+      console.log("❌ Aucun Game Pass trouvé dans le HTML. Structure modifiée ?");
+    }
 
     for (let i = 0; i < gamepassDivs.length; i++) {
       const div = gamepassDivs[i];
@@ -32,7 +39,7 @@ app.get("/api/passes/:userId", async (req, res) => {
 
       if (!id || !name) continue;
 
-      // Récupération du prix
+      // Récupère le prix
       let price = 0;
       try {
         const productUrl = `https://economy.roblox.com/v1/assets/${id}/resellers`;
@@ -40,8 +47,8 @@ app.get("/api/passes/:userId", async (req, res) => {
         if (resellers.data?.data?.[0]?.unitPrice) {
           price = resellers.data.data[0].unitPrice;
         }
-      } catch (err) {
-        price = 0;
+      } catch (e) {
+        console.log(`⚠️ Erreur lors du prix pour le Game Pass ${id}:`, e.message);
       }
 
       if (price > 0) {
@@ -56,7 +63,7 @@ app.get("/api/passes/:userId", async (req, res) => {
 
     res.json({ passes });
   } catch (err) {
-    console.error("Erreur principale:", err.message);
+    console.error("❌ Erreur principale:", err.message);
     res.status(500).json({ error: "Erreur interne Roblox" });
   }
 });
@@ -82,6 +89,7 @@ app.get("/api/username/:username", async (req, res) => {
       res.status(404).json({ error: "Utilisateur introuvable" });
     }
   } catch (err) {
+    console.error("❌ Erreur userId:", err.message);
     res.status(500).json({ error: "Erreur lors de la récupération du userId" });
   }
 });
