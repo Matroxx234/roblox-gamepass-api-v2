@@ -13,9 +13,14 @@ app.get("/api/passes/:userId", async (req, res) => {
   const url = `https://www.roblox.com/users/${userId}/game-passes`;
 
   try {
-    const html = await axios.get(url);
-    const $ = cheerio.load(html.data);
+    const html = await axios.get(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      }
+    });
 
+    const $ = cheerio.load(html.data);
     const passes = [];
 
     const gamepassDivs = $(".game-pass-item");
@@ -27,13 +32,12 @@ app.get("/api/passes/:userId", async (req, res) => {
 
       if (!id || !name) continue;
 
-      // Récupération du prix via API secondaire
-      const productUrl = `https://economy.roblox.com/v1/assets/${id}/resellers`;
-
+      // Récupération du prix
       let price = 0;
       try {
+        const productUrl = `https://economy.roblox.com/v1/assets/${id}/resellers`;
         const resellers = await axios.get(productUrl);
-        if (resellers.data && resellers.data.data && resellers.data.data[0]) {
+        if (resellers.data?.data?.[0]?.unitPrice) {
           price = resellers.data.data[0].unitPrice;
         }
       } catch (err) {
@@ -52,25 +56,26 @@ app.get("/api/passes/:userId", async (req, res) => {
 
     res.json({ passes });
   } catch (err) {
-    console.error("Erreur API principale:", err.message);
-    res.status(500).json({ error: "Erreur API Roblox: " + err.message });
+    console.error("Erreur principale:", err.message);
+    res.status(500).json({ error: "Erreur interne Roblox" });
   }
 });
 
 app.get("/api/username/:username", async (req, res) => {
   const username = req.params.username;
+
   try {
-    const response = await axios.get(
+    const result = await axios.post(
       `https://users.roblox.com/v1/usernames/users`,
+      { usernames: [username] },
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        data: { usernames: [username] }
+        headers: {
+          "Content-Type": "application/json"
+        }
       }
     );
 
-    const userId = response.data.data[0]?.id;
-
+    const userId = result.data?.data?.[0]?.id;
     if (userId) {
       res.json({ userId });
     } else {
