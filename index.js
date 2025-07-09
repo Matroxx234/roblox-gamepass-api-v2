@@ -1,43 +1,39 @@
-const express = require("express");
-const axios = require("axios");
-const cheerio = require("cheerio");
-
+const express = require('express');
+const axios = require('axios');
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 
-app.get("/api/passes/:userId", async (req, res) => {
+app.get('/v1/user/:userId/items', async (req, res) => {
   const userId = req.params.userId;
-  const url = `https://www.roblox.com/users/${userId}/game-passes`;
+  let gamepasses = [], clothes = [];
 
   try {
-    const response = await axios.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0"
-      }
-    });
+    const gamesRes = await axios.get(`https://games.roblox.com/v1/users/${userId}/games`);
+    const games = gamesRes.data.data || [];
 
-    const $ = cheerio.load(response.data);
-    const passes = [];
+    for (const game of games) {
+      const passRes = await axios.get(`https://games.roblox.com/v1/games/${game.id}/game-passes`);
+      gamepasses = gamepasses.concat(passRes.data.data || []);
+    }
 
-    $(".game-pass-item").each((_, el) => {
-      const name = $(el).find(".text-name").text().trim();
-      const idMatch = $(el).find("a").attr("href")?.match(/game-pass\/(\d+)/);
-      const id = idMatch ? Number(idMatch[1]) : null;
-      const priceText = $(el).find(".text-robux").text().replace("R$", "").trim();
-      const price = Number(priceText);
+    const types = [
+      { name: 'Shirts', subId: 11 },
+      { name: 'Pants', subId: 12 },
+      { name: 'TShirts', subId: 2 }
+    ];
+    for (const t of types) {
+      const clothesRes = await axios.get(
+        `https://catalog.roblox.com/v1/search/items?CreatorTargetId=${userId}` +
+        `&Category=3&Subcategory=${t.subId}&Limit=30`
+      );
+      clothes = clothes.concat(clothesRes.data.data || []);
+    }
 
-      if (id && price > 0) {
-        passes.push({ id, name, price });
-      }
-    });
-
-    res.json({ passes });
+    res.json({ gamepasses, clothes });
   } catch (err) {
-    console.error("Erreur API Roblox:", err.message);
-    res.status(500).json({ error: "Erreur interne Roblox" });
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ API en ligne sur le port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`API running on port ${PORT}`));
