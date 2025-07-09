@@ -13,11 +13,13 @@ app.get('/api/passes/:userId', async (req, res) => {
   try {
     const url = `https://catalog.roblox.com/v1/search/items?category=11&creatorTargetId=${userId}&salesTypeFilter=1&limit=30`;
     const response = await axios.get(url);
+
     const passes = response.data.data.map(pass => ({
       id: pass.id,
       name: pass.name,
       price: pass.price || 0
     }));
+
     res.json({ passes });
   } catch (err) {
     console.error('Erreur API:', err.message);
