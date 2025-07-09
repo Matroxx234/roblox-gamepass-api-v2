@@ -1,44 +1,28 @@
-import express from "express";
-import axios from "axios";
-import cheerio from "cheerio";
-
+const express = require('express');
 const app = express();
-const PORT = process.env.PORT || 10000;
+const axios = require('axios');
+const PORT = process.env.PORT || 3000;
 
-app.get("/api/passes/:userId", async (req, res) => {
-  const { userId } = req.params;
-  const url = `https://www.roblox.com/users/${userId}/game-passes`;
-
+app.get('/v1/users/:userId/gamepasses', async (req, res) => {
+  const userId = req.params.userId;
   try {
-    const response = await axios.get(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0"
+    const response = await axios.get(`https://games.roblox.com/v1/users/${userId}/games`);
+    const gameIds = response.data.data.map(game => game.id);
+
+    let gamepasses = [];
+    for (const gameId of gameIds) {
+      const resGP = await axios.get(`https://games.roblox.com/v1/games/${gameId}/game-passes`);
+      if (resGP.data.data) {
+        gamepasses = gamepasses.concat(resGP.data.data);
       }
-    });
+    }
 
-    const html = response.data;
-    const $ = cheerio.load(html);
-    const passes = [];
-
-    $(".game-pass-item").each((_, el) => {
-      const name = $(el).find(".text-name").text().trim();
-      const idMatch = $(el).find("a").attr("href")?.match(/game-pass\/(\d+)/);
-      const id = idMatch ? Number(idMatch[1]) : null;
-      const priceText = $(el).find(".text-robux").text().replace("R$", "").trim();
-      const price = Number(priceText);
-
-      if (id && price > 0) {
-        passes.push({ id, name, price });
-      }
-    });
-
-    res.json({ passes });
-  } catch (err) {
-    console.error("Erreur API:", err.message);
-    res.status(500).json({ error: "Erreur interne Roblox" });
+    res.json(gamepasses);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ API en ligne sur le port ${PORT}`);
+  console.log(`API running on port ${PORT}`);
 });
